@@ -51,4 +51,20 @@ streamlit run app.py
 
 Default CSV URLs and agent settings live in `config/agents_config.yaml`.
 
+Create a local `.env` file for backend LLM settings:
+
+```text
+OPENAI_API_KEY=<your key>
+OPENAI_MODEL=gpt-4o-mini
+LLM_ENABLED=true
+```
+
+The `.env` file is intentionally ignored by Git because it can contain secrets. Use `.env.example` as the template.
+
 Cosmos DB is not used in this version.
+
+## Dashboard Tabs
+
+- `Insights`: converts raw customer conversations into sentiment, intent, resolution status, risk, and next-best-action signals.
+- `Performance`: rolls up insight outcomes by agent to show resolution quality, customer sentiment, and coaching opportunities.
+- `Sales Campaign`: recommends follow-up channels for customers who need additional outreach to reduce churn risk or improve conversion.

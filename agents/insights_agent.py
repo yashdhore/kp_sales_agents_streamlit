@@ -6,12 +6,14 @@ import uuid
 import pandas as pd
 
 from .data_loader import save_output
+from .llm_client import InteractionLlmClient
 
 
 class InsightsAgent:
     def __init__(self, config: dict):
         self.config = config
         self.output_path = config.get("output", {}).get("save_to")
+        self.llm_client = InteractionLlmClient()
 
     def run(self, chats: pd.DataFrame, phone_calls: pd.DataFrame, salesforce_clients: pd.DataFrame) -> pd.DataFrame:
         combined = self._combine_sources(chats, phone_calls, salesforce_clients)
@@ -50,7 +52,11 @@ class InsightsAgent:
         return combined
 
     def _build_record(self, row: pd.Series) -> dict:
-        sentiment_score = row.get("SentimentScore")
+        analysis = self.llm_client.analyze(
+            str(row.get("Transcript", "")),
+            str(row.get("InteractionIntent", "Unknown")),
+            str(row.get("Resolved", "No")),
+        )
         return {
             "id": str(uuid.uuid4()),
             "Timestamp": datetime.now(timezone.utc).isoformat(),
@@ -63,24 +69,11 @@ class InsightsAgent:
             "Region": row.get("Region"),
             "ClientStatus": row.get("Status"),
             "LifetimeValue": row.get("LifetimeValue"),
-            "Sentiment": self._sentiment_label(sentiment_score),
-            "SentimentScore": self._safe_float(sentiment_score, default=0.0),
-            "Intent": row.get("InteractionIntent", "Unknown"),
-            "Resolved": row.get("Resolved", "No"),
+            "Sentiment": analysis["Sentiment"],
+            "SentimentScore": analysis["SentimentScore"],
+            "Intent": analysis["Intent"],
+            "Resolved": analysis["Resolved"],
+            "RiskLevel": analysis["RiskLevel"],
+            "ExecutiveInsight": analysis["ExecutiveInsight"],
+            "NextBestAction": analysis["NextBestAction"],
         }
-
-    def _sentiment_label(self, score) -> str:
-        score = self._safe_float(score, default=0.0)
-        if score > 0.25:
-            return "Positive"
-        if score < -0.25:
-            return "Negative"
-        return "Neutral"
-
-    def _safe_float(self, value, default: float) -> float:
-        try:
-            if pd.isna(value):
-                return default
-            return float(value)
-        except (TypeError, ValueError):
-            return default

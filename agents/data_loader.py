@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from typing import Optional
@@ -53,4 +54,9 @@ def save_output(df: pd.DataFrame, output_path: Optional[str]) -> None:
         return
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
+    try:
+        df.to_csv(path, index=False)
+    except PermissionError:
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        fallback_path = path.with_name(f"{path.stem}_{timestamp}{path.suffix}")
+        df.to_csv(fallback_path, index=False)

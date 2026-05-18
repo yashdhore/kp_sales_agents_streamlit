@@ -1,11 +1,15 @@
 data_sources:
-  chats_url: ""
-  phone_calls_url: ""
-  salesforce_clients_url: ""
+  chats_url: "https://raw.githubusercontent.com/yashdhore/kp_sales_agents_streamlit/master/data/input_chats.csv"
+  phone_calls_url: "https://raw.githubusercontent.com/yashdhore/kp_sales_agents_streamlit/master/data/input_phone_calls.csv"
+  salesforce_clients_url: "https://raw.githubusercontent.com/yashdhore/kp_sales_agents_streamlit/master/data/input_salesforce_clients.csv"
 
 agents:
   - name: InsightsAgent
     description: Extracts customer interaction insights from chat, call, and Salesforce CSV data.
+    llm:
+      enabled_env: LLM_ENABLED
+      provider: openai
+      model_env: OPENAI_MODEL
     output:
       save_to: output/output_insights.csv
 
