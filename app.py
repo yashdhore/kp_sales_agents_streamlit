@@ -337,7 +337,7 @@ def show_tab_header(title: str, description: str) -> None:
         st.subheader(title)
         st.markdown(f"<div class='agent-copy'>{description}</div>", unsafe_allow_html=True)
     with logo_col:
-        show_logo(width=125)
+        show_logo(width=95)
 
 
 config = load_config()
@@ -353,7 +353,7 @@ with hero_col:
         unsafe_allow_html=True,
     )
 with logo_col:
-    show_logo(width=170)
+    show_logo(width=120)
 
 with st.sidebar:
     st.header("Data Sources")
