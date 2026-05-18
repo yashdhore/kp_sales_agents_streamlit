@@ -12,7 +12,7 @@ from agents.data_loader import GitHubCsvLoader, GitHubCsvSources
 from agents.llm_client import InteractionLlmClient
 
 
-st.set_page_config(page_title="Customer Growth Intelligence", page_icon="CG", layout="wide")
+st.set_page_config(page_title="Revenue Growth Intelligence Platform", page_icon="RG", layout="wide")
 
 LOGO_PATH = Path("logo/AnalyticsAI Logo_B7.jpg")
 
@@ -346,7 +346,7 @@ llm_status = InteractionLlmClient()
 
 hero_col, logo_col = st.columns([0.78, 0.22], vertical_alignment="center")
 with hero_col:
-    st.title("Customer Growth Intelligence Command Center")
+    st.title("Revenue Growth Intelligence Platform")
     st.markdown(
         "<div class='main-subtitle'>AI agents that convert customer conversations into CMO-ready growth, "
         "performance, and campaign activation signals.</div>",
