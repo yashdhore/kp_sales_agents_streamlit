@@ -16,30 +16,6 @@ st.set_page_config(page_title="Customer Growth Intelligence", page_icon="CG", la
 
 LOGO_PATH = Path("logo/AnalyticsAI Logo_B7.jpg")
 
-AGENT_BULLETS = {
-    "insights": [
-        "Pinpoints the top customer intents behind demand, churn signals, and conversion friction.",
-        "Separates positive, neutral, and negative conversations so leaders can see sentiment movement fast.",
-        "Flags unresolved interactions that need immediate executive attention or field follow-up.",
-        "Summarizes conversation-level risk and next-best-action signals for revenue protection.",
-        "Turns unstructured chats and calls into a reusable intelligence layer for marketing, sales, and service.",
-    ],
-    "performance": [
-        "Ranks frontline execution by resolution rate, sentiment quality, and interaction volume.",
-        "Identifies which agents are creating the strongest customer outcomes and which need coaching.",
-        "Connects customer experience quality to measurable operating signals the CMO can act on.",
-        "Highlights where training, playbooks, or escalation paths can improve conversion and retention.",
-        "Creates a repeatable performance view that can scale across regions, channels, and campaigns.",
-    ],
-    "campaign": [
-        "Prioritizes customers who need outreach before dissatisfaction becomes churn or lost pipeline.",
-        "Recommends phone, email, or SMS follow-up based on sentiment, channel history, and resolution status.",
-        "Gives marketing a direct bridge from customer conversations to targeted campaign activation.",
-        "Helps sales teams focus high-touch effort where human intervention can protect the most value.",
-        "Creates a measurable next-best-action queue for retention, win-back, and conversion programs.",
-    ],
-}
-
 
 st.markdown(
     """
@@ -48,6 +24,12 @@ st.markdown(
         padding-top: 1.25rem;
         padding-bottom: 2rem;
         max-width: 1480px;
+    }
+    .stApp {
+        background: linear-gradient(180deg, #f8fbfd 0%, #ffffff 42%);
+    }
+    h1, h2, h3 {
+        color: #062b5f;
     }
     div[data-testid="stMetric"] {
         background: #ffffff;
@@ -61,8 +43,8 @@ st.markdown(
         font-size: 0.82rem;
     }
     .executive-note {
-        border-left: 4px solid #2f6f9f;
-        background: #f4f8fb;
+        border-left: 4px solid #18c99a;
+        background: #f1fbf8;
         padding: 0.85rem 1rem;
         margin: 0.75rem 0 1.1rem;
         color: #263845;
@@ -72,6 +54,50 @@ st.markdown(
         font-size: 1.02rem;
         line-height: 1.55;
         margin-bottom: 0.8rem;
+    }
+    .stButton > button, .stDownloadButton > button {
+        background: linear-gradient(90deg, #006fd6 0%, #18c99a 100%) !important;
+        color: #ffffff !important;
+        border: 0 !important;
+        border-radius: 8px !important;
+        font-weight: 700 !important;
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        background: linear-gradient(90deg, #0059ad 0%, #10a77f 100%) !important;
+        color: #ffffff !important;
+        border: 0 !important;
+    }
+    button[data-baseweb="tab"] {
+        background: #e7f3ff;
+        color: #062b5f;
+        border-radius: 8px 8px 0 0;
+        padding: 0.75rem 1.25rem;
+        margin-right: 0.25rem;
+        font-weight: 700;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background: linear-gradient(90deg, #006fd6 0%, #18c99a 100%);
+        color: #ffffff;
+    }
+    button[data-baseweb="tab"] p {
+        color: inherit;
+        font-weight: 700;
+    }
+    .insight-card {
+        background: #ffffff;
+        border: 1px solid #d9e8f2;
+        border-radius: 8px;
+        padding: 1rem 1.15rem;
+        margin: 0.75rem 0 1.15rem;
+        box-shadow: 0 1px 2px rgba(6, 43, 95, 0.06);
+    }
+    .insight-card ul {
+        margin: 0;
+        padding-left: 1.15rem;
+    }
+    .insight-card li {
+        margin: 0.35rem 0;
+        color: #1f3344;
     }
     </style>
     """,
@@ -127,15 +153,88 @@ def show_logo(width: int = 150) -> None:
 def show_llm_note() -> None:
     st.markdown(
         "<div class='executive-note'><strong>LLM-driven insight layer:</strong> "
-        "The bullets and tab outputs are generated from the underlying customer interaction data "
-        "using the configured backend LLM, with deterministic fallback logic available when the LLM is not enabled.</div>",
+        "The bullets below are derived from the currently loaded CSV data and enriched by the configured "
+        "backend LLM, with deterministic fallback logic available when the LLM is not enabled.</div>",
         unsafe_allow_html=True,
     )
 
 
 def show_bullets(items: list[str]) -> None:
-    for item in items:
-        st.markdown(f"- {item}")
+    html_items = "".join(f"<li>{item}</li>" for item in items)
+    st.markdown(f"<div class='insight-card'><ul>{html_items}</ul></div>", unsafe_allow_html=True)
+
+
+def top_value(df: pd.DataFrame, column: str, default: str = "N/A") -> tuple[str, int]:
+    if df.empty or column not in df.columns:
+        return default, 0
+    counts = df[column].dropna().astype(str).value_counts()
+    if counts.empty:
+        return default, 0
+    return counts.index[0], int(counts.iloc[0])
+
+
+def pct(numerator: int | float, denominator: int | float) -> str:
+    if not denominator:
+        return "0%"
+    return f"{(numerator / denominator) * 100:.0f}%"
+
+
+def build_insight_bullets(insights: pd.DataFrame) -> list[str]:
+    total = len(insights)
+    top_intent, top_intent_count = top_value(insights, "Intent")
+    top_sentiment, top_sentiment_count = top_value(insights, "Sentiment")
+    high_risk = int((insights.get("RiskLevel", pd.Series(dtype=str)).astype(str) == "High").sum())
+    unresolved = int((insights.get("Resolved", pd.Series(dtype=str)).astype(str).str.lower() != "yes").sum())
+    top_channel, top_channel_count = top_value(insights, "SalesChannel")
+    return [
+        f"{top_intent} is the leading customer intent, representing {top_intent_count:,} of {total:,} analyzed interactions.",
+        f"{top_sentiment} is the dominant sentiment signal across {top_sentiment_count:,} interactions, shaping the current customer experience narrative.",
+        f"{unresolved:,} interactions remain unresolved, creating a {pct(unresolved, total)} service-to-growth recovery opportunity.",
+        f"{high_risk:,} interactions are classified as high risk, giving leadership a focused queue for retention intervention.",
+        f"{top_channel} is the highest-volume interaction channel with {top_channel_count:,} records, indicating where customer voice is currently concentrated.",
+    ]
+
+
+def build_performance_bullets(performance: pd.DataFrame, insights: pd.DataFrame) -> list[str]:
+    total_agents = performance["AgentName"].nunique() if not performance.empty and "AgentName" in performance.columns else 0
+    top_agent = "N/A"
+    top_resolution = 0.0
+    coaching_count = 0
+    avg_resolution = 0.0
+    sentiment_leader = "N/A"
+    if not performance.empty:
+        sorted_resolution = performance.sort_values("ResolutionRate", ascending=False)
+        top_agent = str(sorted_resolution.iloc[0]["AgentName"])
+        top_resolution = float(sorted_resolution.iloc[0]["ResolutionRate"])
+        coaching_count = int((performance["Category"] == "Train").sum()) if "Category" in performance.columns else 0
+        avg_resolution = float(performance["ResolutionRate"].mean()) if "ResolutionRate" in performance.columns else 0.0
+        if "AvgSentimentScore" in performance.columns:
+            sentiment_leader = str(performance.sort_values("AvgSentimentScore", ascending=False).iloc[0]["AgentName"])
+    unresolved = int((insights.get("Resolved", pd.Series(dtype=str)).astype(str).str.lower() != "yes").sum())
+    return [
+        f"{total_agents:,} frontline agents are scored from the current interaction dataset.",
+        f"{top_agent} has the strongest resolution signal at {top_resolution:.0%}, creating a benchmark for playbook replication.",
+        f"The average resolution rate is {avg_resolution:.0%}, showing the current operating baseline for customer issue closure.",
+        f"{coaching_count:,} agents fall into the coaching category, highlighting where enablement can lift customer outcomes.",
+        f"{sentiment_leader} leads the sentiment quality signal, while {unresolved:,} unresolved cases show where execution can still protect revenue.",
+    ]
+
+
+def build_campaign_bullets(campaign: pd.DataFrame, insights: pd.DataFrame) -> list[str]:
+    targets = len(campaign)
+    top_channel, top_channel_count = top_value(campaign, "RecommendedChannel")
+    top_intent, top_intent_count = top_value(campaign, "Intent")
+    negative = int((campaign.get("Sentiment", pd.Series(dtype=str)).astype(str) == "Negative").sum())
+    none_count = int((campaign.get("RecommendedChannel", pd.Series(dtype=str)).astype(str) == "None").sum())
+    actionable = targets - none_count
+    high_risk = int((insights.get("RiskLevel", pd.Series(dtype=str)).astype(str) == "High").sum())
+    return [
+        f"{targets:,} customer records qualify for campaign review from the loaded data.",
+        f"{top_channel} is the leading recommended outreach path, assigned to {top_channel_count:,} customer opportunities.",
+        f"{top_intent} is the top campaign-triggering intent, appearing in {top_intent_count:,} recommended outreach records.",
+        f"{negative:,} campaign candidates carry negative sentiment, giving marketing a focused retention and recovery segment.",
+        f"{actionable:,} records have an actionable channel recommendation, with {high_risk:,} high-risk signals available for prioritization.",
+    ]
 
 
 def show_tab_header(title: str, description: str) -> None:
@@ -214,7 +313,7 @@ with tab_insights:
         "Transforms raw customer transcripts into a boardroom-ready view of sentiment, intent, risk, and next best action.",
     )
     show_llm_note()
-    show_bullets(AGENT_BULLETS["insights"])
+    show_bullets(build_insight_bullets(insights_df))
     chart_cols = st.columns(3)
     if "Sentiment" in insights_df.columns:
         chart_cols[0].bar_chart(insights_df["Sentiment"].value_counts())
@@ -231,7 +330,7 @@ with tab_performance:
         "Connects customer outcomes to agent execution so leadership can see where performance is creating or limiting growth.",
     )
     show_llm_note()
-    show_bullets(AGENT_BULLETS["performance"])
+    show_bullets(build_performance_bullets(performance_df, insights_df))
     if not performance_df.empty:
         st.bar_chart(performance_df.set_index("AgentName")[["ResolutionRate", "AvgSentimentScore"]])
     st.dataframe(performance_df, use_container_width=True, hide_index=True)
@@ -248,7 +347,7 @@ with tab_campaign:
         "Turns unresolved and at-risk interactions into prioritized outreach actions for conversion, retention, and win-back teams.",
     )
     show_llm_note()
-    show_bullets(AGENT_BULLETS["campaign"])
+    show_bullets(build_campaign_bullets(campaign_df, insights_df))
     chart_cols = st.columns(2)
     if not campaign_df.empty and "RecommendedChannel" in campaign_df.columns:
         chart_cols[0].bar_chart(campaign_df["RecommendedChannel"].value_counts())
