@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import uuid
+
+import pandas as pd
+
+from .data_loader import save_output
+
+
+class InsightsAgent:
+    def __init__(self, config: dict):
+        self.config = config
+        self.output_path = config.get("output", {}).get("save_to")
+
+    def run(self, chats: pd.DataFrame, phone_calls: pd.DataFrame, salesforce_clients: pd.DataFrame) -> pd.DataFrame:
+        combined = self._combine_sources(chats, phone_calls, salesforce_clients)
+        records = [self._build_record(row) for _, row in combined.iterrows()]
+        df_out = pd.DataFrame(records)
+        save_output(df_out, self.output_path)
+        return df_out
+
+    def _combine_sources(
+        self,
+        chats: pd.DataFrame,
+        phone_calls: pd.DataFrame,
+        salesforce_clients: pd.DataFrame,
+    ) -> pd.DataFrame:
+        chats = chats.copy()
+        phone_calls = phone_calls.copy()
+        salesforce_clients = salesforce_clients.copy()
+
+        chats["SalesChannel"] = chats.get("SalesChannel", "chat")
+        phone_calls["SalesChannel"] = phone_calls.get("SalesChannel", "phone")
+
+        combined = pd.concat([chats, phone_calls], ignore_index=True, sort=False)
+        client_columns = [column for column in ["ClientID", "SalesChannel", "Region", "Status", "LifetimeValue"] if column in salesforce_clients.columns]
+
+        if "ClientID" in combined.columns and client_columns:
+            combined = combined.merge(
+                salesforce_clients[client_columns],
+                on="ClientID",
+                how="left",
+                suffixes=("", "_client"),
+            )
+            if "SalesChannel_client" in combined.columns:
+                combined["SalesChannel"] = combined["SalesChannel_client"].combine_first(combined["SalesChannel"])
+                combined = combined.drop(columns=["SalesChannel_client"])
+
+        return combined
+
+    def _build_record(self, row: pd.Series) -> dict:
+        sentiment_score = row.get("SentimentScore")
+        return {
+            "id": str(uuid.uuid4()),
+            "Timestamp": datetime.now(timezone.utc).isoformat(),
+            "ClientID": row.get("ClientID"),
+            "AgentName": row.get("AgentName"),
+            "Transcript": row.get("Transcript"),
+            "FunnelStep": row.get("FunnelStep"),
+            "TimeSpent": row.get("TimeSpent"),
+            "SalesChannel": row.get("SalesChannel"),
+            "Region": row.get("Region"),
+            "ClientStatus": row.get("Status"),
+            "LifetimeValue": row.get("LifetimeValue"),
+            "Sentiment": self._sentiment_label(sentiment_score),
+            "SentimentScore": self._safe_float(sentiment_score, default=0.0),
+            "Intent": row.get("InteractionIntent", "Unknown"),
+            "Resolved": row.get("Resolved", "No"),
+        }
+
+    def _sentiment_label(self, score) -> str:
+        score = self._safe_float(score, default=0.0)
+        if score > 0.25:
+            return "Positive"
+        if score < -0.25:
+            return "Negative"
+        return "Neutral"
+
+    def _safe_float(self, value, default: float) -> float:
+        try:
+            if pd.isna(value):
+                return default
+            return float(value)
+        except (TypeError, ValueError):
+            return default

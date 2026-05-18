@@ -1,0 +1,44 @@
+data_sources:
+  chats_url: ""
+  phone_calls_url: ""
+  salesforce_clients_url: ""
+
+agents:
+  - name: InsightsAgent
+    description: Extracts customer interaction insights from chat, call, and Salesforce CSV data.
+    output:
+      save_to: output/output_insights.csv
+
+  - name: PerformanceAgent
+    description: Scores sales/support agent performance from generated insights.
+    input:
+      filters:
+        Intent: ["Billing", "Cancel Request", "Technical Support", "Product Info", "Feedback"]
+        Sentiment: ["Positive", "Neutral", "Negative"]
+    categorization:
+      Best:
+        resolution_threshold: 0.9
+        sentiment_threshold: 0.5
+      Better:
+        resolution_threshold: 0.8
+        sentiment_threshold: 0.0
+      Good:
+        resolution_threshold: 0.7
+    output:
+      save_to: output/output_agent_performance_report.csv
+
+  - name: SalesCampaignAgent
+    description: Recommends the best follow-up campaign channel per client.
+    input:
+      filters:
+        Intent: ["Billing", "Cancel Request", "Technical Support", "Product Info", "Feedback"]
+        Sentiment: ["Negative", "Neutral"]
+    recommendation_strategy:
+      score_weights:
+        Phone: 0.7
+        Email: 0.5
+        SMS: 0.3
+      priority_order: ["Phone", "Email", "SMS"]
+      minimum_score_threshold: 0.1
+    output:
+      save_to: output/output_sales_campaign_recommendations.csv
